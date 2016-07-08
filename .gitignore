@@ -1,0 +1,7 @@
+.*
+!.gitignore
+.DS_Store
+wp-cli.local.yml
+node_modules/
+vendor/
+*.iml
