@@ -49,7 +49,6 @@ class Command extends \WP_CLI_Command {
 	 *     Downloading WordPress Test Library 4.5.3 ...
 	 *     Success: WordPress Test Library downloaded.
 	 *
-	 * @when before_wp_load
 	 */
 	public function download( $args, $assoc_args ) {
 
