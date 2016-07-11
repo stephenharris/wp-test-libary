@@ -238,7 +238,7 @@ class Command extends \WP_CLI_Command {
 			return;
 		}
 
-		return "https://develop.svn.wordpress.org/{$tag}/tests/phpunit/includes/";
+		return "https://develop.svn.wordpress.org/{$tag}/tests/phpunit/";
 	}
 
 	/**
