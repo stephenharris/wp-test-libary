@@ -98,7 +98,7 @@ class Command extends \WP_CLI_Command {
 		WP_CLI::launch( Utils\esc_cmd( "svn co --quiet $download_url %s", $tempdir ) );
 		
 		self::_copy_overwrite_files( $tempdir, $library_path );
-		self::_rmdir( $tempdir) );
+		self::_rmdir( $tempdir );
 			
 			
 		WP_CLI::success( 'WordPress Test Library downloaded.' );
