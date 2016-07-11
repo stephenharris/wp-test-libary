@@ -42,6 +42,9 @@ class Command extends \WP_CLI_Command {
 	 * [--version=<version>]
 	 * : Select which version you want to download.
 	 *
+	 * [--force]
+	 * : Over-ride the exsiting wp-tests-config.php if it exists.
+	 *
 	 * ## EXAMPLES
 	 *
 	 *     $ wp test-library download --library-path=/tmp/wordpress-test-lib
@@ -60,6 +63,12 @@ class Command extends \WP_CLI_Command {
 
 		$version      = $assoc_args['version'];
 		$library_path = $assoc_args['library-path'];
+		
+		$test_library_present = file_exists( $library_path );
+		
+		if ( ! \WP_CLI\Utils\get_flag_value( $assoc_args, 'force' ) && $test_library_present ) {
+			WP_CLI::error( 'The WordPress Test Library files seem to already be present here.' );
+		}
 
 		if ( ! is_dir( $library_path ) ) {
 			if ( ! is_writable( dirname( $library_path ) ) ) {
@@ -82,9 +91,14 @@ class Command extends \WP_CLI_Command {
 
 		WP_CLI::log( sprintf( 'Downloading WordPress Test Library %s ...', $version ) );
 
-		$cmd = "svn co --quiet $download_url %s";
+		$tempdir = \WP_CLI\Utils\get_temp_dir() . uniqid('wp_');
 
-		WP_CLI::launch( Utils\esc_cmd( $cmd, $library_path ) );
+		WP_CLI::launch( Utils\esc_cmd( "svn co --quiet $download_url %s", $temp ) );
+		
+		self::_copy_overwrite_files( $tempdir, $library_path );
+		self::_rmdir( dirname( $tempdir ) );
+			
+			
 		WP_CLI::success( 'WordPress Test Library downloaded.' );
 	}
 
@@ -241,6 +255,45 @@ class Command extends \WP_CLI_Command {
 		return "https://develop.svn.wordpress.org/{$tag}/tests/phpunit/";
 	}
 
+	private static function _copy_overwrite_files( $source, $dest ) {
+		$iterator = new RecursiveIteratorIterator(
+			new RecursiveDirectoryIterator( $source, RecursiveDirectoryIterator::SKIP_DOTS ),
+			RecursiveIteratorIterator::SELF_FIRST);
+		$error = 0;
+		foreach ( $iterator as $item ) {
+			$dest_path = $dest . DIRECTORY_SEPARATOR . $iterator->getSubPathName();
+			if ( $item->isDir() ) {
+				if ( !is_dir( $dest_path ) ) {
+					mkdir( $dest_path );
+				}
+			} else {
+				if ( file_exists( $dest_path ) && is_writable( $dest_path ) ) {
+					copy( $item, $dest_path );
+				} elseif ( ! file_exists( $dest_path ) ) {
+					copy( $item, $dest_path );
+				} else {
+					$error = 1;
+					WP_CLI::warning( "Unable to copy '" . $iterator->getSubPathName() . "' to current directory." );
+				}
+			}
+		}
+		if ( $error ) {
+			WP_CLI::error( 'There was an error downloading all WordPress files.' );
+		}
+	}
+	
+	private static function _rmdir( $dir ) {
+		$files = new RecursiveIteratorIterator(
+			new RecursiveDirectoryIterator( $dir, RecursiveDirectoryIterator::SKIP_DOTS ),
+			RecursiveIteratorIterator::CHILD_FIRST
+		);
+		foreach ( $files as $fileinfo ) {
+			$todo = $fileinfo->isDir() ? 'rmdir' : 'unlink';
+			$todo( $fileinfo->getRealPath() );
+		}
+		rmdir( $dir );
+	}
+	
 	/**
 	 * Uses wordpress.org's API to determine the latest version.
 	 *
