@@ -258,9 +258,9 @@ class Command extends \WP_CLI_Command {
 	}
 
 	private static function _copy_overwrite_files( $source, $dest ) {
-		$iterator = new RecursiveIteratorIterator(
-			new RecursiveDirectoryIterator( $source, RecursiveDirectoryIterator::SKIP_DOTS ),
-			RecursiveIteratorIterator::SELF_FIRST);
+		$iterator = new \RecursiveIteratorIterator(
+			new \RecursiveDirectoryIterator( $source, \RecursiveDirectoryIterator::SKIP_DOTS ),
+			\RecursiveIteratorIterator::SELF_FIRST);
 		$error = 0;
 		foreach ( $iterator as $item ) {
 			$dest_path = $dest . DIRECTORY_SEPARATOR . $iterator->getSubPathName();
@@ -285,9 +285,9 @@ class Command extends \WP_CLI_Command {
 	}
 	
 	private static function _rmdir( $dir ) {
-		$files = new RecursiveIteratorIterator(
-			new RecursiveDirectoryIterator( $dir, RecursiveDirectoryIterator::SKIP_DOTS ),
-			RecursiveIteratorIterator::CHILD_FIRST
+		$files = new \RecursiveIteratorIterator(
+			new \RecursiveDirectoryIterator( $dir, \RecursiveDirectoryIterator::SKIP_DOTS ),
+			\RecursiveIteratorIterator::CHILD_FIRST
 		);
 		foreach ( $files as $fileinfo ) {
 			$todo = $fileinfo->isDir() ? 'rmdir' : 'unlink';
