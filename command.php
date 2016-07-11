@@ -92,8 +92,10 @@ class Command extends \WP_CLI_Command {
 		WP_CLI::log( sprintf( 'Downloading WordPress Test Library %s ...', $version ) );
 
 		$tempdir = \WP_CLI\Utils\get_temp_dir() . uniqid('wp_');
+		$mkdir = \WP_CLI\Utils\is_windows() ? 'mkdir %s' : 'mkdir -p %s';
+		WP_CLI::launch( Utils\esc_cmd( $mkdir, $tempdir ) );
 
-		WP_CLI::launch( Utils\esc_cmd( "svn co --quiet $download_url %s", $temp ) );
+		WP_CLI::launch( Utils\esc_cmd( "svn co --quiet $download_url %s", $tempdir ) );
 		
 		self::_copy_overwrite_files( $tempdir, $library_path );
 		self::_rmdir( dirname( $tempdir ) );
