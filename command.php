@@ -56,9 +56,9 @@ class Command extends \WP_CLI_Command {
 	public function download( $args, $assoc_args ) {
 
 		$assoc_args = array_merge( array(
-			'version'     => 'latest',
+			'version'      => 'latest',
 			'library-path' => '',
-			'path'        => ABSPATH,
+			'path'         => ABSPATH,
 		), $assoc_args );
 
 		$version      = $assoc_args['version'];
@@ -117,6 +117,9 @@ class Command extends \WP_CLI_Command {
 	 *
 	 * [--dbpass=<dbpass>]
 	 * : Set the database user password.
+	 *
+	 * [--library-path=<library-path>]
+	 * : Specify the path in which to store the tests file (i.e. location of the test library)
 	 *
 	 * [--dbhost=<dbhost>]
 	 * : Set the database host. Default: 'localhost'
@@ -177,16 +180,17 @@ class Command extends \WP_CLI_Command {
 		include $versions_path;
 
 		$defaults = array(
-			'dbhost'     => 'localhost',
-			'dbpass'     => '',
-			'dbcharset'  => 'utf8',
-			'dbcollate'  => '',
-			'dbprefix'   => 'wptests_',
-			'testdomain' => 'example.org',
-			'testemail'  => 'admin@example.org',
-			'testtitle'  => 'Test Blog',
-			'phpbinary'  => 'php',
-			'path'       => ABSPATH,
+			'dbhost'       => 'localhost',
+			'dbpass'       => '',
+			'dbcharset'    => 'utf8',
+			'dbcollate'    => '',
+			'dbprefix'     => 'wptests_',
+			'testdomain'   => 'example.org',
+			'testemail'    => 'admin@example.org',
+			'testtitle'    => 'Test Blog',
+			'phpbinary'    => 'php',
+			'path'         => ABSPATH,
+			'library-path' => '',
 		);
 		$assoc_args = array_merge( $defaults, $assoc_args );
 
@@ -224,7 +228,7 @@ class Command extends \WP_CLI_Command {
 		) );
 		$out = $m->render( $template, $assoc_args );
 
-		$bytes_written = file_put_contents( ABSPATH . 'wp-tests-config.php', $out );
+		$bytes_written = file_put_contents( $assoc_args['library-path'] . '/wp-tests-config.php', $out );
 		if ( ! $bytes_written ) {
 			WP_CLI::error( "Could not create 'wp-tests-config.php' file." );
 		} else {
