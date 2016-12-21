@@ -9,7 +9,8 @@
         "files": [ "command.php" ]
     },
     "require": {
-      "mustache/mustache": "~2.4"
+        "wp-cli/wp-cli" : ">=1.0.0",
+        "mustache/mustache": "~2.4"
     },
     "require-dev": {
         "behat/behat": "~2.5"
