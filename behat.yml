@@ -12,7 +12,7 @@ default:
       connection:
         db: 'wp_cli_test_library_test'
         username: 'root'
-        password: 'vagrant'
+        password: ''
       mail:
         directory: '/tmp/mail'
     Behat\MinkExtension:
