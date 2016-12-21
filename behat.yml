@@ -1,0 +1,20 @@
+# behat.yml
+default:
+  suites:
+    default:
+      contexts:
+        - FeatureContext
+        - \StephenHarris\WordPressBehatExtension\Context\WordPressContext
+  extensions:
+    StephenHarris\WordPressBehatExtension:
+      path: '/tmp/wordpress'
+      site_url: 'http://wordpress.dev'
+      connection:
+        db: 'wp_cli_test_library_test'
+        username: 'root'
+        password: 'vagrant'
+      mail:
+        directory: '/tmp/mail'
+    Behat\MinkExtension:
+      goutte: ~
+      base_url: 'http://wordpress.dev'

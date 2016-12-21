@@ -13,6 +13,8 @@
         "mustache/mustache": "~2.4"
     },
     "require-dev": {
-        "behat/behat": "~2.5"
+        "behat/behat": "~3.0",
+        "stephenharris/wordpress-behat-extension": "dev-develop",
+        "behat/mink-goutte-driver": ">=1.1"
     }
 }

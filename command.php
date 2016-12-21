@@ -2,7 +2,6 @@
 
 namespace stephenharris\WPTestLibrary;
 
-use \Composer\Semver\Comparator;
 use \WP_CLI\Utils;
 use \WP_CLI;
 
@@ -63,22 +62,15 @@ class Command extends \WP_CLI_Command {
 
 		$version      = $assoc_args['version'];
 		$library_path = $assoc_args['library-path'];
-		
-		$test_library_present = file_exists( $library_path );
+
+		$build_file = rtrim( $assoc_args['library-path'], '/' ) . '/build.xml';
+		$test_library_present = file_exists( $build_file );
 		
 		if ( ! \WP_CLI\Utils\get_flag_value( $assoc_args, 'force' ) && $test_library_present ) {
-			WP_CLI::error( 'The WordPress Test Library files seem to already be present here.' );
+			WP_CLI::error( sprintf( "The WordPress Test Library files seem to already be present here. at %s", $build_file ) );
 		}
 
-		if ( ! is_dir( $library_path ) ) {
-			if ( ! is_writable( dirname( $library_path ) ) ) {
-				WP_CLI::error( sprintf( "Insufficient permission to create directory '%s'.", $library_path ) );
-			}
-
-			WP_CLI::log( sprintf( "Creating directory '%s'.", $library_path ) );
-			$mkdir = \WP_CLI\Utils\is_windows() ? 'mkdir %s' : 'mkdir -p %s';
-			WP_CLI::launch( Utils\esc_cmd( $mkdir, $library_path ) );
-		}
+		$this->create_directory_if_not_exists( $library_path );
 
 		if ( ! is_writable( $library_path ) ) {
 			WP_CLI::error( sprintf( "'%s' is not writable by current user.", $library_path ) );
@@ -91,16 +83,15 @@ class Command extends \WP_CLI_Command {
 
 		WP_CLI::log( sprintf( 'Downloading WordPress Test Library %s ...', $version ) );
 
+		//Checkout test library SVN repo to temporary location and copy to desired location.
 		$tempdir = \WP_CLI\Utils\get_temp_dir() . uniqid('wp_');
 		$mkdir = \WP_CLI\Utils\is_windows() ? 'mkdir %s' : 'mkdir -p %s';
 		WP_CLI::launch( Utils\esc_cmd( $mkdir, $tempdir ) );
-
 		WP_CLI::launch( Utils\esc_cmd( "svn co --quiet $download_url %s", $tempdir ) );
 		
 		self::_copy_overwrite_files( $tempdir, $library_path );
 		self::_rmdir( $tempdir );
-			
-			
+
 		WP_CLI::success( 'WordPress Test Library downloaded.' );
 	}
 
@@ -134,16 +125,16 @@ class Command extends \WP_CLI_Command {
 	 * : Set the database collation. Default: ''
 	 *
 	 * [--testdomain=<testdomain>]
-	 * : Set the database collation. Default: 'example.org'
+	 * : Set the test domain. Default: 'example.org'
 	 *
 	 * [--testemail=<testemail>]
-	 * : Set the database collation. Default: 'admin@example.org'
+	 * : Set the test admin e-mail. Default: 'admin@example.org'
 	 *
 	 * [--testtitle=<testtitle>]
-	 * : Set the database collation. Default: 'Test Blog'
+	 * : Set the test site title. Default: 'Test Blog'
 	 *
 	 * [--phpbinary=<phpbinary>]
-	 * : Set the database collation. Default: 'php'
+	 * : Set the PHP binary. Default: 'php'
 	 *
 	 * [--locale=<locale>]
 	 * : Set the WPLANG constant. Defaults to $wp_local_package variable.
@@ -169,15 +160,10 @@ class Command extends \WP_CLI_Command {
 	 */
 	public function config( $_, $assoc_args ) {
 
-		$wp_config = Utils\locate_wp_config();
-		$wp_tests_config = dirname( $wp_config ) . DIRECTORY_SEPARATOR . 'wp-tests-config.php';
-
+		$wp_tests_config = $assoc_args['library-path'] . DIRECTORY_SEPARATOR . 'wp-tests-config.php';
 		if ( file_exists( $wp_tests_config ) && ! \WP_CLI\Utils\get_flag_value( $assoc_args, 'force' ) ) {
 			WP_CLI::error( "The 'wp-tests-config.php' file already exists." );
 		}
-
-		$versions_path = ABSPATH . 'wp-includes/version.php';
-		include $versions_path;
 
 		$defaults = array(
 			'dbhost'       => 'localhost',
@@ -194,9 +180,22 @@ class Command extends \WP_CLI_Command {
 		);
 		$assoc_args = array_merge( $defaults, $assoc_args );
 
-		//Warn the user if the database name and prefix match the core install
+		if ( preg_match( '|[^a-z0-9_]|i', $assoc_args['dbprefix'] ) ) {
+			WP_CLI::error( '--dbprefix can only contain numbers, letters, and underscores.' );
+		}
+
+		$this->warn_if_db_tables_match_site( $assoc_args['dbname'], $assoc_args['dbprefix'] );
+
+		if ( ! \WP_CLI\Utils\get_flag_value( $assoc_args, 'skip-check' ) ) {
+			$this->check_db_connection( $assoc_args['dbhost'], $assoc_args['dbuser'], $assoc_args['dbpass'] );
+		}
+
+		$this->create_config( $assoc_args, $assoc_args['library-path'] . '/wp-tests-config.php' );
+	}
+
+	private function warn_if_db_tables_match_site( $dnbame, $dbprefix ) {
 		global $wpdb;
-		if ( DB_NAME == $assoc_args['dbname'] && $wpdb->prefix == $assoc_args['dbprefix'] ) {
+		if ( DB_NAME == $dnbame && $wpdb->prefix == $dbprefix ) {
 			WP_CLI::warning( 'Test database and table prefix matches that of the WordPress install.' );
 			WP_CLI::warning( sprintf(
 				'Running the test will DROP ALL TABLES in the %s with prefix %s.',
@@ -204,35 +203,42 @@ class Command extends \WP_CLI_Command {
 				$wpdb->prefix
 			) );
 		}
+	}
 
-		if ( preg_match( '|[^a-z0-9_]|i', $assoc_args['dbprefix'] ) ) {
-			WP_CLI::error( '--dbprefix can only contain numbers, letters, and underscores.' );
-		}
+	private function check_db_connection( $dbhost, $dbuser, $dbpass ) {
+		Utils\run_mysql_command( 'mysql --no-defaults', array(
+			'execute' => ';',
+			'host' => $dbhost,
+			'user' => $dbuser,
+			'pass' => $dbpass,
+		) );
+	}
 
-		// Check DB connection
-		if ( ! \WP_CLI\Utils\get_flag_value( $assoc_args, 'skip-check' ) ) {
-			Utils\run_mysql_command( 'mysql --no-defaults', array(
-				'execute' => ';',
-				'host' => $assoc_args['dbhost'],
-				'user' => $assoc_args['dbuser'],
-				'pass' => $assoc_args['dbpass'],
-			) );
-		}
-
-		$assoc_args['add-wplang'] = (bool) \WP_CLI\Utils\wp_version_compare( '4.0', '<' );
-
+	private function create_config( $parameters, $location ) {
 		$template_name = dirname( __FILE__ ) . '/templates/wp-tests-config.mustache';
 		$template      = file_get_contents( $template_name );
 		$m = new \Mustache_Engine( array(
 			'escape' => function ( $val ) { return $val; }
 		) );
-		$out = $m->render( $template, $assoc_args );
+		$out = $m->render( $template, $parameters );
 
-		$bytes_written = file_put_contents( $assoc_args['library-path'] . '/wp-tests-config.php', $out );
+		$bytes_written = file_put_contents( $location, $out );
 		if ( ! $bytes_written ) {
-			WP_CLI::error( "Could not create 'wp-tests-config.php' file." );
+			WP_CLI::error( sprintf( "Could not create '%s' file.", basename( $location ) ) );
 		} else {
-			WP_CLI::success( "Generated 'wp-tests-config.php' file." );
+			WP_CLI::success(  sprintf( "Generated '%s' file.", basename( $location ) ) );
+		}
+	}
+
+	private function create_directory_if_not_exists( $directory ) {
+		if ( ! is_dir( $directory ) ) {
+			if ( ! is_writable( dirname( $directory ) ) ) {
+				WP_CLI::error( sprintf( "Insufficient permission to create directory '%s'.", $directory ) );
+			}
+
+			WP_CLI::log( sprintf( "Creating directory '%s'.", $directory ) );
+			$mkdir = \WP_CLI\Utils\is_windows() ? 'mkdir %s' : 'mkdir -p %s';
+			WP_CLI::launch( Utils\esc_cmd( $mkdir, $directory ) );
 		}
 	}
 
@@ -325,6 +331,8 @@ class Command extends \WP_CLI_Command {
 		$version = preg_replace('/[^.0-9]/', '', $version );
 
 		return $version;
+
+
 	}
 
 }
