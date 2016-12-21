@@ -1,6 +1,7 @@
 {
     "name": "stephenharris/wp-test-library",
-    "description": "",
+    "description": "Install the WordPress test library and create a wp-tests-config.php",
+    "type": "wp-cli-package",
     "homepage": "https://github.com/stephenharris/wp-test-library",
     "license": "MIT",
     "authors": [],
