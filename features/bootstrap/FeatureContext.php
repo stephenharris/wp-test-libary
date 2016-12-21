@@ -31,15 +31,28 @@ class FeatureContext implements Context, SnippetAcceptingContext {
      */
     public static function prepare( BeforeSuiteScope $event ) {
 
-        $result = Process::create( 'wp cli info' )->run_check();
+        $result = Process::create( 'wp cli info', null, self::get_process_env_variables() )->run_check();
         echo PHP_EOL;
         echo $result->stdout;
         echo PHP_EOL;
 
         //self::cache_wp_files();
-        $result = Process::create( Utils\esc_cmd( 'wp core version --path=%s', '/tmp/wordpress' ) )->run_check();
+        $result = Process::create( Utils\esc_cmd( 'wp core version --path=%s', '/tmp/wordpress' ), null, self::get_process_env_variables() )->run_check();
         echo 'WordPress ' . $result->stdout;
         echo PHP_EOL;
+    }
+
+    /**
+     * Get the environment variables required for launched `wp` processes
+     * @beforeSuite
+     */
+    private static function get_process_env_variables() {
+        // Ensure we're using the expected `wp` binary
+        $bin_dir = realpath( __DIR__ . "/../../vendor/bin" );
+        $env = array(
+            'PATH' =>  $bin_dir . ':' . getenv( 'PATH' ),
+        );
+        return $env;
     }
 
 
@@ -53,7 +66,7 @@ class FeatureContext implements Context, SnippetAcceptingContext {
             $cwd = null;
         }
 
-        return Process::create( $command, $cwd, $env );
+        return Process::create( $command, $cwd, $this->get_process_env_variables() );
     }
 
     function invoke_proc( $proc, $mode ) {
